@@ -2,6 +2,8 @@ import gtk
 from subprocess import Popen, PIPE
 from threading import Thread
 from time import sleep
+import sys
+import os
 
 RUNNING = True
 LOCATION = ''
@@ -25,8 +27,8 @@ def message(data=None):
     msg.destroy()
 
 
-def run_windscribe_command(commands):
-    process = Popen(['windscribe'] + commands, stdout=PIPE)
+def run_windscribe_command(commands, superuser=False):
+    process = Popen((['sudo'] if superuser else []) + ['windscribe'] + commands, stdout=PIPE)
     res = process.communicate()[0]
     return res
 
@@ -104,7 +106,20 @@ def update(icon):
         sleep(1)
 
 
+def startup():
+    is_superuser = os.getuid() == 0
+    if 'status: running' not in run_windscribe_command(['status']):
+        if is_superuser:
+            print 'Starting windscribe.'
+            run_windscribe_command(['start'], superuser=True)
+            print 'Windscribe started.'
+        else:
+            print 'Windscribe is not running. Please start windscribe manually or run this script as a superuser.'
+            sys.exit(1)
+
+
 if __name__ == '__main__':
+    startup()
     LOCATIONS = get_locations()
     icon = gtk.status_icon_new_from_stock(gtk.STOCK_CONNECT)
     icon.connect('popup-menu', on_right_click)
