@@ -1,4 +1,5 @@
 import gtk
+import gobject
 from subprocess import Popen, PIPE
 from threading import Thread
 from time import sleep
@@ -6,6 +7,7 @@ import sys
 import os
 
 RUNNING = True
+LOCATIONS = []
 LOCATION = ''
 
 
@@ -97,13 +99,16 @@ def on_right_click(data, event_button, event_time):
     make_menu(event_button, event_time)
 
 
-def update(icon):
-    while RUNNING:
-        if 'DISCONNECTED' not in run_windscribe_command(['status']):
-            icon.set_from_stock(gtk.STOCK_CONNECT)
-        else:
-            icon.set_from_stock(gtk.STOCK_DISCONNECT)
-        sleep(1)
+def update(icon, gtk_thread):
+    try:
+        while RUNNING:
+            if 'DISCONNECTED' not in run_windscribe_command(['status']):
+                icon.set_from_stock(gtk.STOCK_CONNECT)
+            else:
+                icon.set_from_stock(gtk.STOCK_DISCONNECT)
+            sleep(1)
+    except KeyboardInterrupt:
+        gtk.main_quit()
 
 
 def startup():
@@ -116,16 +121,21 @@ def startup():
         else:
             print 'Windscribe is not running. Please start windscribe manually or run this script as a superuser.'
             sys.exit(1)
-
+    global LOCATIONS
+    LOCATIONS = get_locations()
+    status = run_windscribe_command(['status'])
+    for (name, code) in LOCATIONS:
+        if name in status:
+            global LOCATION
+            LOCATION = code
 
 if __name__ == '__main__':
     startup()
-    LOCATIONS = get_locations()
     icon = gtk.status_icon_new_from_stock(gtk.STOCK_CONNECT)
     icon.connect('popup-menu', on_right_click)
     gtk.threads_init()
-
     gtk_thread = Thread(target=gtk.main)
+
     gtk_thread.start()
 
-    update(icon)
+    update(icon, gtk_thread)
